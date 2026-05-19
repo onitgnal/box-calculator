@@ -93,8 +93,8 @@ The app reads user input values from the form and recalculates immediately when 
 Main inputs:
 
 - `Table Hole Spacing (mm)`: distance between table holes.
-- `Hole Spacings (X-Axis)`: number of spacing intervals along the length.
-- `Hole Spacings (Y-Axis)`: number of spacing intervals along the width.
+- `Width X`: the X-axis span, entered either as a direct millimeter value or as a hole count.
+- `Depth Y`: the Y-axis span, entered either as a direct millimeter value or as a hole count.
 - `Target Total Height (mm)`: full target height, including feet and top sheet.
 - `Max Span Limit (mm)`: maximum allowed module span before the frame is divided into more sections.
 - `Feet Height (mm)`: height of each foot.
@@ -105,14 +105,26 @@ Main inputs:
 Calculated dimensions:
 
 ```text
-length = x-axis hole spacings * table hole spacing
-width = y-axis hole spacings * table hole spacing
+if X is entered in mm:
+    width x = x mm value
+
+if X is entered in holes:
+    width x = (x hole count - 1) * table hole spacing
+
+if Y is entered in mm:
+    depth y = y mm value
+
+if Y is entered in holes:
+    depth y = (y hole count - 1) * table hole spacing
+
 post height = target total height - feet height - top sheet thickness
-x sections = ceiling(length / max span limit)
-y sections = ceiling(width / max span limit)
-module length = length / x sections
-module width = width / y sections
+x sections = ceiling(width x / max span limit)
+y sections = ceiling(depth y / max span limit)
+module length = width x / x sections
+module width = depth y / y sections
 ```
+
+Hole count means the number of actual holes across the span, not the number of gaps between holes. For example, 49 holes at 25 mm spacing creates a 1200 mm span because there are 48 spacing intervals between the first and last hole.
 
 The bill of materials is generated from those section counts and dimensions. The canvas drawings show:
 

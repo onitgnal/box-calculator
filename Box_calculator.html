@@ -11,6 +11,15 @@
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.85em; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }
         input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 1em; background: #f8fafc; transition: border-color 0.2s; }
         input:focus { border-color: #3b82f6; outline: none; background: #fff; }
+        .axis-control { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .axis-control > label { margin-bottom: 0; }
+        .axis-note { color: #64748b; font-size: 0.82em; min-height: 1.2em; }
+        .segmented-control { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #f8fafc; }
+        .segmented-control input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; margin: 0; }
+        .segmented-control label { margin: 0; padding: 8px 10px; border-right: 1px solid #cbd5e1; cursor: pointer; text-align: center; font-size: 0.82em; font-weight: 700; color: #475569; text-transform: none; letter-spacing: 0; }
+        .segmented-control label:last-child { border-right: 0; }
+        .segmented-control input:checked + label { background: #2563eb; color: #fff; }
+        .segmented-control input:focus-visible + label { outline: 2px solid #1d4ed8; outline-offset: -2px; }
         h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.4em; }
         
         /* Table Styles */
@@ -38,13 +47,27 @@
                 <label>Table Hole Spacing (mm)</label>
                 <input type="number" step="0.1" id="inpSpace" value="25" oninput="calculateAndDraw()">
             </div>
-            <div>
-                <label>Hole Spacings (X-Axis)</label>
-                <input type="number" id="inpX" value="48" oninput="calculateAndDraw()">
+            <div class="axis-control">
+                <label for="inpX">Width X</label>
+                <div class="segmented-control" role="radiogroup" aria-label="Width X input mode">
+                    <input type="radio" id="modeXHoles" name="modeX" value="holes" checked onchange="setAxisMode('x', 'holes')">
+                    <label for="modeXHoles">Holes</label>
+                    <input type="radio" id="modeXmm" name="modeX" value="mm" onchange="setAxisMode('x', 'mm')">
+                    <label for="modeXmm">mm</label>
+                </div>
+                <input type="number" step="1" min="2" id="inpX" value="49" oninput="calculateAndDraw()" onchange="normalizeAxisValue('x')">
+                <div class="axis-note" id="outXBasis">-</div>
             </div>
-            <div>
-                <label>Hole Spacings (Y-Axis)</label>
-                <input type="number" id="inpY" value="30" oninput="calculateAndDraw()">
+            <div class="axis-control">
+                <label for="inpY">Depth Y</label>
+                <div class="segmented-control" role="radiogroup" aria-label="Depth Y input mode">
+                    <input type="radio" id="modeYHoles" name="modeY" value="holes" checked onchange="setAxisMode('y', 'holes')">
+                    <label for="modeYHoles">Holes</label>
+                    <input type="radio" id="modeYmm" name="modeY" value="mm" onchange="setAxisMode('y', 'mm')">
+                    <label for="modeYmm">mm</label>
+                </div>
+                <input type="number" step="1" min="2" id="inpY" value="31" oninput="calculateAndDraw()" onchange="normalizeAxisValue('y')">
+                <div class="axis-note" id="outYBasis">-</div>
             </div>
             <div>
                 <label>Target Total Height (mm)</label>
@@ -106,46 +129,129 @@
                 <canvas id="canvasTop" width="400" height="400"></canvas>
             </div>
             <div class="canvas-container">
-                <h3>Front View (X-Axis Length)</h3>
+                <h3>Front View (Width X)</h3>
                 <canvas id="canvasFront" width="400" height="400"></canvas>
             </div>
             <div class="canvas-container">
-                <h3>Side View (Y-Axis Width)</h3>
+                <h3>Side View (Depth Y)</h3>
                 <canvas id="canvasSide" width="400" height="400"></canvas>
             </div>
         </div>
     </div>
 
     <script>
+        const axisModes = {
+            x: 'holes',
+            y: 'holes'
+        };
+
+        function readNumber(id, fallback) {
+            const value = parseFloat(document.getElementById(id).value);
+            return Number.isFinite(value) ? value : fallback;
+        }
+
+        function formatNumber(value) {
+            return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+        }
+
+        function axisValueToSpan(value, mode, spacing) {
+            if (mode === 'holes') {
+                const holes = Math.max(2, Math.round(value));
+                return (holes - 1) * spacing;
+            }
+
+            return Math.max(1, value);
+        }
+
+        function updateAxisInputState(axis) {
+            const input = document.getElementById(`inp${axis.toUpperCase()}`);
+            const mode = axisModes[axis];
+
+            input.step = mode === 'holes' ? '1' : '0.1';
+            input.min = mode === 'holes' ? '2' : '1';
+        }
+
+        function setAxisMode(axis, mode) {
+            const input = document.getElementById(`inp${axis.toUpperCase()}`);
+            const spacing = Math.max(readNumber('inpSpace', 25), 0.1);
+            const previousMode = axisModes[axis];
+            const currentValue = readNumber(input.id, previousMode === 'holes' ? 2 : 1);
+            const currentSpan = axisValueToSpan(currentValue, previousMode, spacing);
+
+            axisModes[axis] = mode;
+            updateAxisInputState(axis);
+
+            if (mode === 'holes') {
+                input.value = String(Math.max(2, Math.round(currentSpan / spacing) + 1));
+            } else {
+                input.value = formatNumber(currentSpan);
+            }
+
+            calculateAndDraw();
+        }
+
+        function normalizeAxisValue(axis) {
+            if (axisModes[axis] !== 'holes') return;
+
+            const input = document.getElementById(`inp${axis.toUpperCase()}`);
+            input.value = String(Math.max(2, Math.round(readNumber(input.id, 2))));
+            calculateAndDraw();
+        }
+
+        function getAxisMeasurement(axis, spacing) {
+            const input = document.getElementById(`inp${axis.toUpperCase()}`);
+            const mode = axisModes[axis];
+            const fallback = axis === 'x' ? 49 : 31;
+
+            if (mode === 'holes') {
+                const holes = Math.max(2, Math.round(readNumber(input.id, fallback)));
+                const span = (holes - 1) * spacing;
+
+                return {
+                    span,
+                    note: `${holes} holes @ ${formatNumber(spacing)} mm = ${formatNumber(span)} mm`
+                };
+            }
+
+            const span = Math.max(1, readNumber(input.id, axis === 'x' ? 1200 : 750));
+
+            return {
+                span,
+                note: `${formatNumber(span)} mm direct span`
+            };
+        }
+
         // Main function triggered on any input change
         function calculateAndDraw() {
             // Get base inputs
-            const SPACE = parseFloat(document.getElementById('inpSpace').value) || 25;
-            const X = parseInt(document.getElementById('inpX').value) || 1;
-            const Y = parseInt(document.getElementById('inpY').value) || 1;
-            const H = parseInt(document.getElementById('inpH').value) || 100;
-            const MAX = parseInt(document.getElementById('inpMax').value) || 100;
+            const SPACE = Math.max(readNumber('inpSpace', 25), 0.1);
+            const H = readNumber('inpH', 100);
+            const MAX = Math.max(readNumber('inpMax', 100), 1);
 
             // Get hardware inputs
-            const FEET = parseFloat(document.getElementById('inpFeet').value) || 0;
-            const RAIL_W = parseFloat(document.getElementById('inpRailW').value) || 0;
-            const RAIL_L = parseFloat(document.getElementById('inpRailL').value) || 0;
-            const SHEET = parseFloat(document.getElementById('inpSheet').value) || 0;
+            const FEET = readNumber('inpFeet', 0);
+            const RAIL_W = readNumber('inpRailW', 0);
+            const RAIL_L = readNumber('inpRailL', 0);
+            const SHEET = readNumber('inpSheet', 0);
 
             // Master Dimensions
-            const L = X * SPACE;
-            const W = Y * SPACE;
+            const axisX = getAxisMeasurement('x', SPACE);
+            const axisY = getAxisMeasurement('y', SPACE);
+            const L = axisX.span;
+            const W = axisY.span;
             const postH = H - FEET - SHEET;
 
             // Modularity Logic
-            const divX = Math.ceil(L / MAX) || 1;
-            const divY = Math.ceil(W / MAX) || 1;
+            const divX = Math.max(1, Math.ceil(L / MAX));
+            const divY = Math.max(1, Math.ceil(W / MAX));
             const modL = L / divX;
             const modW = W / divY;
 
             // Update UI Data Summaries
-            document.getElementById('outSize').innerText = `${L}L x ${W}W x ${H}H mm`;
+            document.getElementById('outSize').innerText = `${formatNumber(L)}W x ${formatNumber(W)}D x ${formatNumber(H)}H mm`;
             document.getElementById('outGrid').innerText = `${divX} x ${divY} Sections`;
+            document.getElementById('outXBasis').innerText = axisX.note;
+            document.getElementById('outYBasis').innerText = axisY.note;
 
             // Calculate Component Quantities
             const qtyPosts = (divX + 1) * (divY + 1);
