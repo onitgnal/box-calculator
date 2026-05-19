@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parametric Optical Box Blueprint</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 1200px; margin: auto; background: #f0f4f8; color: #2c3e50; }
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .grid-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.85em; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 1em; background: #f8fafc; transition: border-color 0.2s; }
+        input:focus { border-color: #3b82f6; outline: none; background: #fff; }
+        h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.4em; }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #475569; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        .summary { font-size: 1.05em; color: #3b82f6; font-weight: bold; margin-bottom: 10px; background: #eff6ff; padding: 10px; border-radius: 4px; border: 1px solid #bfdbfe; }
+
+        /* Canvas Styles */
+        .canvas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .canvas-container { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; padding: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+        canvas { width: 100%; max-width: 400px; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 4px; }
+        h3 { margin: 0 0 10px 0; color: #475569; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+
+    <!-- SECTION 1: INPUTS -->
+    <div class="panel">
+        <h2>1. Parametric Design Inputs</h2>
+        <div class="grid-inputs">
+            <!-- Table & Dimensions -->
+            <div>
+                <label>Table Hole Spacing (mm)</label>
+                <input type="number" step="0.1" id="inpSpace" value="25" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Hole Spacings (X-Axis)</label>
+                <input type="number" id="inpX" value="48" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Hole Spacings (Y-Axis)</label>
+                <input type="number" id="inpY" value="30" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Target Total Height (mm)</label>
+                <input type="number" id="inpH" value="600" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Max Span Limit (mm)</label>
+                <input type="number" id="inpMax" value="900" oninput="calculateAndDraw()">
+            </div>
+
+            <!-- Hardware Dimensions -->
+            <div>
+                <label>Feet Height (mm)</label>
+                <input type="number" step="1" id="inpFeet" value="15" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Rail Profile Width (mm)</label>
+                <input type="number" step="1" id="inpRailW" value="25" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Rail Profile Length (mm)</label>
+                <input type="number" step="1" id="inpRailL" value="25" oninput="calculateAndDraw()">
+            </div>
+            <div>
+                <label>Top Sheet Thickness (mm)</label>
+                <input type="number" step="1" id="inpSheet" value="5" oninput="calculateAndDraw()">
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: BOM TABLE -->
+    <div class="panel">
+        <h2>2. Bill of Materials</h2>
+        <div class="summary">
+            Overall Frame Size: <span id="outSize">-</span> | Grid Layout: <span id="outGrid">-</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Qty</th>
+                    <th>Length (mm)</th>
+                    <th>Width (mm)</th>
+                    <th>Height/Thick (mm)</th>
+                </tr>
+            </thead>
+            <tbody id="bomBody">
+                <!-- Javascript will populate this dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SECTION 3: BLUEPRINTS -->
+    <div class="panel">
+        <h2>3. Engineering Blueprints</h2>
+        <div class="canvas-grid">
+            <div class="canvas-container">
+                <h3>Top View (Grid Layout)</h3>
+                <canvas id="canvasTop" width="400" height="400"></canvas>
+            </div>
+            <div class="canvas-container">
+                <h3>Front View (X-Axis Length)</h3>
+                <canvas id="canvasFront" width="400" height="400"></canvas>
+            </div>
+            <div class="canvas-container">
+                <h3>Side View (Y-Axis Width)</h3>
+                <canvas id="canvasSide" width="400" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Main function triggered on any input change
+        function calculateAndDraw() {
+            // Get base inputs
+            const SPACE = parseFloat(document.getElementById('inpSpace').value) || 25;
+            const X = parseInt(document.getElementById('inpX').value) || 1;
+            const Y = parseInt(document.getElementById('inpY').value) || 1;
+            const H = parseInt(document.getElementById('inpH').value) || 100;
+            const MAX = parseInt(document.getElementById('inpMax').value) || 100;
+
+            // Get hardware inputs
+            const FEET = parseFloat(document.getElementById('inpFeet').value) || 0;
+            const RAIL_W = parseFloat(document.getElementById('inpRailW').value) || 0;
+            const RAIL_L = parseFloat(document.getElementById('inpRailL').value) || 0;
+            const SHEET = parseFloat(document.getElementById('inpSheet').value) || 0;
+
+            // Master Dimensions
+            const L = X * SPACE;
+            const W = Y * SPACE;
+            const postH = H - FEET - SHEET;
+
+            // Modularity Logic
+            const divX = Math.ceil(L / MAX) || 1;
+            const divY = Math.ceil(W / MAX) || 1;
+            const modL = L / divX;
+            const modW = W / divY;
+
+            // Update UI Data Summaries
+            document.getElementById('outSize').innerText = `${L}L x ${W}W x ${H}H mm`;
+            document.getElementById('outGrid').innerText = `${divX} x ${divY} Sections`;
+
+            // Calculate Component Quantities
+            const qtyPosts = (divX + 1) * (divY + 1);
+            const qtyHRailsL = divX * (divY + 1);
+            const qtyHRailsW = divY * (divX + 1);
+
+            // Populate Table
+            const tbody = document.getElementById('bomBody');
+            tbody.innerHTML = `
+                <tr><td><strong>Feet</strong></td><td>${qtyPosts}</td><td>${RAIL_L}</td><td>${RAIL_W}</td><td>${FEET}</td></tr>
+                <tr><td><strong>Vertical Rails (Posts)</strong></td><td>${qtyPosts}</td><td>${RAIL_L}</td><td>${RAIL_W}</td><td>${postH.toFixed(1)}</td></tr>
+                <tr><td><strong>Horizontal Rails (X-Axis)</strong></td><td>${qtyHRailsL}</td><td>${(modL - RAIL_L).toFixed(1)}</td><td>${RAIL_W}</td><td>${RAIL_L}</td></tr>
+                <tr><td><strong>Horizontal Rails (Y-Axis)</strong></td><td>${qtyHRailsW}</td><td>${(modW - RAIL_W).toFixed(1)}</td><td>${RAIL_W}</td><td>${RAIL_L}</td></tr>
+                <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${divX * 2}</td><td>${modL.toFixed(1)}</td><td>-</td><td>${postH.toFixed(1)}</td></tr>
+                <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${divY * 2}</td><td>${modW.toFixed(1)}</td><td>-</td><td>${postH.toFixed(1)}</td></tr>
+                <tr><td><strong>Top Sheets</strong></td><td>${divX * divY}</td><td>${modL.toFixed(1)}</td><td>${modW.toFixed(1)}</td><td>${SHEET}</td></tr>
+            `;
+
+            // Draw Canvases
+            renderTop('canvasTop', L, W, divX, divY, modL, modW, RAIL_W, RAIL_L);
+            renderElevation('canvasFront', L, H, divX, modL, postH, FEET, SHEET, RAIL_W, RAIL_L, 'Total Length');
+            renderElevation('canvasSide', W, H, divY, modW, postH, FEET, SHEET, RAIL_L, RAIL_W, 'Total Width');
+        }
+
+        // --- DRAWING FUNCTIONS ---
+
+        function drawDim(ctx, x1, y1, x2, y2, text, isVertical=false) {
+            ctx.beginPath();
+            ctx.strokeStyle = "#e74c3c";
+            ctx.fillStyle = "#e74c3c";
+            ctx.lineWidth = 1.5;
+            ctx.font = "13px sans-serif";
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            
+            const tick = 6;
+            if (isVertical) {
+                ctx.moveTo(x1 - tick, y1); ctx.lineTo(x1 + tick, y1);
+                ctx.moveTo(x2 - tick, y2); ctx.lineTo(x2 + tick, y2);
+                ctx.textAlign = "left"; ctx.textBaseline = "middle";
+                ctx.fillText(text, x1 + 8, (y1 + y2)/2);
+            } else {
+                ctx.moveTo(x1, y1 - tick); ctx.lineTo(x1, y1 + tick);
+                ctx.moveTo(x2, y2 - tick); ctx.lineTo(x2, y2 + tick);
+                ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+                ctx.fillText(text, (x1 + x2)/2, y1 - 8);
+            }
+            ctx.stroke();
+        }
+
+        function renderTop(id, L, W, divX, divY, modL, modW, railW, railL) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const pad = 60;
+            const drawW = canvas.width - pad * 2;
+            const drawH = canvas.height - pad * 2;
+            const scale = Math.min(drawW / L, drawH / W);
+            const sL = L * scale;
+            const sW = W * scale;
+            
+            const oX = (canvas.width - sL) / 2;
+            const oY = (canvas.height - sW) / 2;
+
+            ctx.strokeStyle = "#2980b9";
+            ctx.lineWidth = Math.max(railW * scale, 2); // Make border relative to rail thickness
+            ctx.strokeRect(oX, oY, sL, sW);
+
+            ctx.lineWidth = Math.max((railW/2) * scale, 1);
+            for (let i = 1; i < divX; i++) {
+                let x = oX + (i * (sL/divX));
+                ctx.beginPath(); ctx.moveTo(x, oY); ctx.lineTo(x, oY + sW); ctx.stroke();
+            }
+            for (let i = 1; i < divY; i++) {
+                let y = oY + (i * (sW/divY));
+                ctx.beginPath(); ctx.moveTo(oX, y); ctx.lineTo(oX + sL, y); ctx.stroke();
+            }
+
+            ctx.fillStyle = "#2c3e50";
+            const nodeX = Math.max(railL * scale, 4);
+            const nodeY = Math.max(railW * scale, 4);
+            for (let i = 0; i <= divX; i++) {
+                for (let j = 0; j <= divY; j++) {
+                    ctx.fillRect(oX + (i * sL/divX) - nodeX/2, oY + (j * sW/divY) - nodeY/2, nodeX, nodeY);
+                }
+            }
+
+            drawDim(ctx, oX, oY - 20, oX + sL, oY - 20, `${L.toFixed(1)} mm`); 
+            drawDim(ctx, oX - 20, oY, oX - 20, oY + sW, `${W.toFixed(1)} mm`, true); 
+            if (divX > 1) drawDim(ctx, oX, oY + sW + 20, oX + (sL/divX), oY + sW + 20, `${modL.toFixed(1)} mm`); 
+        }
+
+        function renderElevation(id, spanL, H, div, modL, postH, feetH, sheetT, railH, postW_actual, labelSpan) {
+            const canvas = document.getElementById(id);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const pad = 60;
+            const drawW = canvas.width - pad * 2;
+            const drawH = canvas.height - pad * 2;
+            const scale = Math.min(drawW / spanL, drawH / H);
+            
+            const sL = spanL * scale;
+            const sH = H * scale;
+            const sFeet = feetH * scale;
+            const sPost = postH * scale;
+            const sRail = railH * scale;
+            const sSheet = sheetT * scale;
+            const postW = Math.max(postW_actual * scale, 4); 
+
+            const oX = (canvas.width - sL) / 2;
+            const oY = canvas.height - pad; 
+
+            // Top Sheet
+            ctx.fillStyle = "#bdc3c7";
+            ctx.fillRect(oX, oY - sH, sL, sSheet);
+            
+            // Horizontal Rail
+            ctx.fillStyle = "#3498db";
+            ctx.fillRect(oX, oY - sH + sSheet, sL, sRail);
+
+            // Feet and Posts
+            for (let i = 0; i <= div; i++) {
+                let xCenter = oX + (i * (sL/div));
+                ctx.fillStyle = "#95a5a6";
+                ctx.fillRect(xCenter - postW/2, oY - sFeet - sPost, postW, sPost);
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillRect(xCenter - postW/2, oY - sFeet, postW, sFeet);
+            }
+
+            drawDim(ctx, oX, oY + 25, oX + sL, oY + 25, `${spanL.toFixed(1)} mm`); 
+            drawDim(ctx, oX + sL + 20, oY - sH, oX + sL + 20, oY, `${H.toFixed(1)} mm`, true); 
+            drawDim(ctx, oX - 25, oY - sFeet - sPost, oX - 25, oY - sFeet, `Post: ${postH.toFixed(1)} mm`, true); 
+            if (div > 1) drawDim(ctx, oX, oY - sH - 20, oX + (sL/div), oY - sH - 20, `${modL.toFixed(1)} mm`); 
+        }
+
+        // Initialize on load
+        calculateAndDraw();
+    </script>
+</body>
+</html>
