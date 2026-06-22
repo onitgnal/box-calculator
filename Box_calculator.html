@@ -5,14 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parametric Optical Box Blueprint</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 1200px; margin: auto; background: #f0f4f8; color: #2c3e50; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 20px; max-width: 1200px; margin: auto; background: #f0f4f8; color: #2c3e50; }
         .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .grid-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
-        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.85em; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }
-        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 1em; background: #f8fafc; transition: border-color 0.2s; }
+        .grid-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; align-items: start; }
+        label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 0.85em; color: #34495e; text-transform: uppercase; letter-spacing: 0.5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 1em; background: #f8fafc; transition: border-color 0.2s, background 0.2s; }
         input:focus { border-color: #3b82f6; outline: none; background: #fff; }
-        .axis-control { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        button { border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px 14px; background: #f8fafc; color: #1e293b; cursor: pointer; font-weight: 700; }
+        button:hover { background: #e2e8f0; }
+        .axis-control { display: flex; flex-direction: column; gap: 8px; min-width: 0; border: 1px solid transparent; border-radius: 6px; padding: 0; transition: background 0.2s, border-color 0.2s, padding 0.2s; }
         .axis-control > label { margin-bottom: 0; }
+        .axis-control.direct-mm { background: #eef2f7; border-color: #d8dee8; padding: 10px; }
+        .axis-control.direct-mm > label { color: #64748b; }
+        .axis-control.direct-mm input[type="number"] { background: #e5e7eb; color: #334155; }
         .axis-note { color: #64748b; font-size: 0.82em; min-height: 1.2em; }
         .segmented-control { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #f8fafc; }
         .segmented-control input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; margin: 0; }
@@ -20,85 +25,96 @@
         .segmented-control label:last-child { border-right: 0; }
         .segmented-control input:checked + label { background: #2563eb; color: #fff; }
         .segmented-control input:focus-visible + label { outline: 2px solid #1d4ed8; outline-offset: -2px; }
-        h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.4em; }
-        
-        /* Table Styles */
+        .parameter-actions { display: flex; gap: 10px; align-items: end; min-height: 72px; }
+        .summary { font-size: 1.05em; color: #3b82f6; font-weight: bold; margin-bottom: 10px; background: #eff6ff; padding: 10px; border-radius: 4px; border: 1px solid #bfdbfe; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
         th { background-color: #f8fafc; color: #475569; font-weight: 600; }
         tr:nth-child(even) { background-color: #f8fafc; }
-        .summary { font-size: 1.05em; color: #3b82f6; font-weight: bold; margin-bottom: 10px; background: #eff6ff; padding: 10px; border-radius: 4px; border: 1px solid #bfdbfe; }
-
-        /* Canvas Styles */
+        h2 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 1.4em; }
+        h3 { margin: 0 0 10px 0; color: #475569; font-size: 1.1em; }
         .canvas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
         .canvas-container { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; padding: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+        .canvas-container.wide { grid-column: 1 / -1; }
         canvas { width: 100%; max-width: 400px; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 4px; }
-        h3 { margin: 0 0 10px 0; color: #475569; font-size: 1.1em; }
+        .model-wrap { position: relative; min-height: 420px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; }
+        #model3d { width: 100%; height: 420px; cursor: grab; }
+        #model3d:active { cursor: grabbing; }
+        #model3d canvas { display: block; width: 100% !important; height: 420px !important; max-width: none; border: 0; border-radius: 0; }
+        .part-tooltip { position: absolute; display: none; pointer-events: none; z-index: 2; max-width: 260px; padding: 8px 10px; border-radius: 4px; background: rgba(15, 23, 42, 0.92); color: #fff; font-size: 0.85em; line-height: 1.35; text-align: left; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22); }
+        .model-hint { position: absolute; left: 12px; bottom: 10px; color: #64748b; font-size: 0.82em; background: rgba(248, 250, 252, 0.85); padding: 4px 6px; border-radius: 4px; }
     </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+            }
+        }
+    </script>
 </head>
 <body>
-
-    <!-- SECTION 1: INPUTS -->
     <div class="panel">
         <h2>1. Parametric Design Inputs</h2>
         <div class="grid-inputs">
-            <!-- Table & Dimensions -->
             <div>
-                <label>Table Hole Spacing (mm)</label>
+                <label for="inpSpace">Table Hole Spacing (mm)</label>
                 <input type="number" step="0.1" id="inpSpace" value="25" oninput="calculateAndDraw()">
             </div>
-            <div class="axis-control">
+            <div class="axis-control direct-mm" id="axisControlX">
                 <label for="inpX">Width X</label>
                 <div class="segmented-control" role="radiogroup" aria-label="Width X input mode">
-                    <input type="radio" id="modeXHoles" name="modeX" value="holes" checked onchange="setAxisMode('x', 'holes')">
+                    <input type="radio" id="modeXHoles" name="modeX" value="holes" onchange="setAxisMode('x', 'holes')">
                     <label for="modeXHoles">Holes</label>
-                    <input type="radio" id="modeXmm" name="modeX" value="mm" onchange="setAxisMode('x', 'mm')">
+                    <input type="radio" id="modeXmm" name="modeX" value="mm" checked onchange="setAxisMode('x', 'mm')">
                     <label for="modeXmm">mm</label>
                 </div>
-                <input type="number" step="1" min="2" id="inpX" value="49" oninput="calculateAndDraw()" onchange="normalizeAxisValue('x')">
+                <input type="number" step="0.1" min="1" id="inpX" value="1505" oninput="calculateAndDraw()" onchange="normalizeAxisValue('x')">
                 <div class="axis-note" id="outXBasis">-</div>
             </div>
-            <div class="axis-control">
+            <div class="axis-control direct-mm" id="axisControlY">
                 <label for="inpY">Depth Y</label>
                 <div class="segmented-control" role="radiogroup" aria-label="Depth Y input mode">
-                    <input type="radio" id="modeYHoles" name="modeY" value="holes" checked onchange="setAxisMode('y', 'holes')">
+                    <input type="radio" id="modeYHoles" name="modeY" value="holes" onchange="setAxisMode('y', 'holes')">
                     <label for="modeYHoles">Holes</label>
-                    <input type="radio" id="modeYmm" name="modeY" value="mm" onchange="setAxisMode('y', 'mm')">
+                    <input type="radio" id="modeYmm" name="modeY" value="mm" checked onchange="setAxisMode('y', 'mm')">
                     <label for="modeYmm">mm</label>
                 </div>
-                <input type="number" step="1" min="2" id="inpY" value="31" oninput="calculateAndDraw()" onchange="normalizeAxisValue('y')">
+                <input type="number" step="0.1" min="1" id="inpY" value="1130" oninput="calculateAndDraw()" onchange="normalizeAxisValue('y')">
                 <div class="axis-note" id="outYBasis">-</div>
             </div>
             <div>
-                <label>Target Total Height (mm)</label>
-                <input type="number" id="inpH" value="600" oninput="calculateAndDraw()">
+                <label for="inpH">Target Total Height (mm)</label>
+                <input type="number" id="inpH" value="497" oninput="calculateAndDraw()">
             </div>
             <div>
-                <label>Max Span Limit (mm)</label>
+                <label for="inpMax">Max Span Limit (mm)</label>
                 <input type="number" id="inpMax" value="900" oninput="calculateAndDraw()">
             </div>
-
-            <!-- Hardware Dimensions -->
             <div>
-                <label>Feet Height (mm)</label>
-                <input type="number" step="1" id="inpFeet" value="15" oninput="calculateAndDraw()">
+                <label for="inpFeet">Feet Height (mm)</label>
+                <input type="number" step="1" id="inpFeet" value="30" oninput="calculateAndDraw()">
             </div>
             <div>
-                <label>Rail Profile Width (mm)</label>
-                <input type="number" step="1" id="inpRailW" value="25" oninput="calculateAndDraw()">
+                <label for="inpRailW">Rail Profile Width (mm)</label>
+                <input type="number" step="1" id="inpRailW" value="30" oninput="calculateAndDraw()">
             </div>
             <div>
-                <label>Rail Profile Length (mm)</label>
-                <input type="number" step="1" id="inpRailL" value="25" oninput="calculateAndDraw()">
+                <label for="inpRailL">Rail Profile Length (mm)</label>
+                <input type="number" step="1" id="inpRailL" value="30" oninput="calculateAndDraw()">
             </div>
             <div>
-                <label>Top Sheet Thickness (mm)</label>
-                <input type="number" step="1" id="inpSheet" value="5" oninput="calculateAndDraw()">
+                <label for="inpSheetCap">Sheet Cap (mm)</label>
+                <input type="number" step="0.1" min="0" id="inpSheetCap" value="4" oninput="calculateAndDraw()">
+            </div>
+            <div class="parameter-actions">
+                <button type="button" onclick="saveParameters()">Save JSON</button>
+                <button type="button" onclick="openLoadDialog()">Load JSON</button>
+                <input type="file" id="loadFile" accept="application/json,.json" hidden onchange="loadParameters(event)">
             </div>
         </div>
     </div>
 
-    <!-- SECTION 2: BOM TABLE -->
     <div class="panel">
         <h2>2. Bill of Materials</h2>
         <div class="summary">
@@ -114,13 +130,10 @@
                     <th>Height/Thick (mm)</th>
                 </tr>
             </thead>
-            <tbody id="bomBody">
-                <!-- Javascript will populate this dynamically -->
-            </tbody>
+            <tbody id="bomBody"></tbody>
         </table>
     </div>
 
-    <!-- SECTION 3: BLUEPRINTS -->
     <div class="panel">
         <h2>3. Engineering Blueprints</h2>
         <div class="canvas-grid">
@@ -136,14 +149,29 @@
                 <h3>Side View (Depth Y)</h3>
                 <canvas id="canvasSide" width="400" height="400"></canvas>
             </div>
+            <div class="canvas-container wide">
+                <h3>3D Model</h3>
+                <div class="model-wrap">
+                    <div id="model3d"></div>
+                    <div class="part-tooltip" id="partTooltip"></div>
+                    <div class="model-hint" id="modelHint">Drag to rotate. Hover a part for dimensions.</div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const PARAMETER_INPUTS = ['inpSpace', 'inpX', 'inpY', 'inpH', 'inpMax', 'inpFeet', 'inpRailW', 'inpRailL', 'inpSheetCap'];
         const axisModes = {
-            x: 'holes',
-            y: 'holes'
+            x: 'mm',
+            y: 'mm'
         };
+
+        let latestMetrics = null;
+        let threeState = null;
 
         function readNumber(id, fallback) {
             const value = parseFloat(document.getElementById(id).value);
@@ -152,6 +180,14 @@
 
         function formatNumber(value) {
             return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+        }
+
+        function getClearRailLength(totalSpan, sectionCount, postFootprint) {
+            return (totalSpan - (sectionCount + 1) * postFootprint) / sectionCount;
+        }
+
+        function getSheetSize(clearOpening, cap) {
+            return Math.max(clearOpening - cap * 2, 0);
         }
 
         function axisValueToSpan(value, mode, spacing) {
@@ -163,12 +199,23 @@
             return Math.max(1, value);
         }
 
+        function getNearestHoleNote(span, spacing) {
+            const holes = Math.max(2, Math.round(span / spacing) + 1);
+            const holeSpan = (holes - 1) * spacing;
+            const delta = holeSpan - span;
+            const deltaText = Math.abs(delta) < 0.05 ? 'exact' : `${delta > 0 ? '+' : ''}${formatNumber(delta)} mm`;
+
+            return `${holes} holes @ ${formatNumber(spacing)} mm = ${formatNumber(holeSpan)} mm (${deltaText})`;
+        }
+
         function updateAxisInputState(axis) {
             const input = document.getElementById(`inp${axis.toUpperCase()}`);
+            const wrapper = document.getElementById(`axisControl${axis.toUpperCase()}`);
             const mode = axisModes[axis];
 
             input.step = mode === 'holes' ? '1' : '0.1';
             input.min = mode === 'holes' ? '2' : '1';
+            wrapper.classList.toggle('direct-mm', mode === 'mm');
         }
 
         function setAxisMode(axis, mode) {
@@ -201,7 +248,7 @@
         function getAxisMeasurement(axis, spacing) {
             const input = document.getElementById(`inp${axis.toUpperCase()}`);
             const mode = axisModes[axis];
-            const fallback = axis === 'x' ? 49 : 31;
+            const fallback = axis === 'x' ? 1505 : 1130;
 
             if (mode === 'holes') {
                 const holes = Math.max(2, Math.round(readNumber(input.id, fallback)));
@@ -213,96 +260,186 @@
                 };
             }
 
-            const span = Math.max(1, readNumber(input.id, axis === 'x' ? 1200 : 750));
+            const span = Math.max(1, readNumber(input.id, fallback));
 
             return {
                 span,
-                note: `${formatNumber(span)} mm direct span`
+                note: `Direct span; nearest table: ${getNearestHoleNote(span, spacing)}`
             };
         }
 
-        // Main function triggered on any input change
-        function calculateAndDraw() {
-            // Get base inputs
+        function getCurrentParameters() {
+            const values = {};
+
+            PARAMETER_INPUTS.forEach((id) => {
+                values[id] = document.getElementById(id).value;
+            });
+
+            return {
+                version: 2,
+                savedAt: new Date().toISOString(),
+                axisModes: { ...axisModes },
+                values
+            };
+        }
+
+        function saveParameters() {
+            const payload = JSON.stringify(getCurrentParameters(), null, 2);
+            const blob = new Blob([payload], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+
+            link.href = url;
+            link.download = `box-calculator-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function openLoadDialog() {
+            const loadInput = document.getElementById('loadFile');
+            loadInput.value = '';
+            loadInput.click();
+        }
+
+        function applyParameters(data) {
+            const values = data.values || data;
+            const modes = data.axisModes || {};
+
+            ['x', 'y'].forEach((axis) => {
+                const mode = modes[axis] === 'holes' ? 'holes' : 'mm';
+                axisModes[axis] = mode;
+                document.getElementById(`mode${axis.toUpperCase()}Holes`).checked = mode === 'holes';
+                document.getElementById(`mode${axis.toUpperCase()}mm`).checked = mode === 'mm';
+                updateAxisInputState(axis);
+            });
+
+            PARAMETER_INPUTS.forEach((id) => {
+                if (values[id] !== undefined) {
+                    document.getElementById(id).value = values[id];
+                }
+            });
+
+            calculateAndDraw();
+        }
+
+        function loadParameters(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    applyParameters(JSON.parse(reader.result));
+                } catch (error) {
+                    alert('The selected file is not a valid box calculator JSON file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function getMetrics() {
             const SPACE = Math.max(readNumber('inpSpace', 25), 0.1);
-            const H = readNumber('inpH', 100);
-            const MAX = Math.max(readNumber('inpMax', 100), 1);
-
-            // Get hardware inputs
-            const FEET = readNumber('inpFeet', 0);
-            const RAIL_W = readNumber('inpRailW', 0);
-            const RAIL_L = readNumber('inpRailL', 0);
-            const SHEET = readNumber('inpSheet', 0);
-
-            // Master Dimensions
+            const H = Math.max(readNumber('inpH', 497), 1);
+            const MAX = Math.max(readNumber('inpMax', 900), 1);
+            const FEET = Math.max(readNumber('inpFeet', 30), 0);
+            const RAIL_W = Math.max(readNumber('inpRailW', 30), 0);
+            const RAIL_L = Math.max(readNumber('inpRailL', 30), 0);
+            const SHEET_CAP = Math.max(readNumber('inpSheetCap', 4), 0);
             const axisX = getAxisMeasurement('x', SPACE);
             const axisY = getAxisMeasurement('y', SPACE);
             const L = axisX.span;
             const W = axisY.span;
-            const postH = H - FEET - SHEET;
-
-            // Modularity Logic
+            const postH = Math.max(H - FEET, 0);
             const divX = Math.max(1, Math.ceil(L / MAX));
             const divY = Math.max(1, Math.ceil(W / MAX));
             const modL = L / divX;
             const modW = W / divY;
+            const railCutX = Math.max(getClearRailLength(L, divX, RAIL_L), 0);
+            const railCutY = Math.max(getClearRailLength(W, divY, RAIL_W), 0);
+            const sheetFrontLength = getSheetSize(railCutX, SHEET_CAP);
+            const sheetSideLength = getSheetSize(railCutY, SHEET_CAP);
+            const sheetHeight = postH;
 
-            // Update UI Data Summaries
-            document.getElementById('outSize').innerText = `${formatNumber(L)}W x ${formatNumber(W)}D x ${formatNumber(H)}H mm`;
-            document.getElementById('outGrid').innerText = `${divX} x ${divY} Sections`;
-            document.getElementById('outXBasis').innerText = axisX.note;
-            document.getElementById('outYBasis').innerText = axisY.note;
-
-            // Calculate Component Quantities
-            const qtyPosts = (divX + 1) * (divY + 1);
-            const qtyHRailsL = divX * (divY + 1);
-            const qtyHRailsW = divY * (divX + 1);
-
-            // Populate Table
-            const tbody = document.getElementById('bomBody');
-            tbody.innerHTML = `
-                <tr><td><strong>Feet</strong></td><td>${qtyPosts}</td><td>${RAIL_L}</td><td>${RAIL_W}</td><td>${FEET}</td></tr>
-                <tr><td><strong>Vertical Rails (Posts)</strong></td><td>${qtyPosts}</td><td>${RAIL_L}</td><td>${RAIL_W}</td><td>${postH.toFixed(1)}</td></tr>
-                <tr><td><strong>Horizontal Rails (X-Axis)</strong></td><td>${qtyHRailsL}</td><td>${(modL - RAIL_L).toFixed(1)}</td><td>${RAIL_W}</td><td>${RAIL_L}</td></tr>
-                <tr><td><strong>Horizontal Rails (Y-Axis)</strong></td><td>${qtyHRailsW}</td><td>${(modW - RAIL_W).toFixed(1)}</td><td>${RAIL_W}</td><td>${RAIL_L}</td></tr>
-                <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${divX * 2}</td><td>${modL.toFixed(1)}</td><td>-</td><td>${postH.toFixed(1)}</td></tr>
-                <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${divY * 2}</td><td>${modW.toFixed(1)}</td><td>-</td><td>${postH.toFixed(1)}</td></tr>
-                <tr><td><strong>Top Sheets</strong></td><td>${divX * divY}</td><td>${modL.toFixed(1)}</td><td>${modW.toFixed(1)}</td><td>${SHEET}</td></tr>
-            `;
-
-            // Draw Canvases
-            renderTop('canvasTop', L, W, divX, divY, modL, modW, RAIL_W, RAIL_L);
-            renderElevation('canvasFront', L, H, divX, modL, postH, FEET, SHEET, RAIL_W, RAIL_L, 'Total Length');
-            renderElevation('canvasSide', W, H, divY, modW, postH, FEET, SHEET, RAIL_L, RAIL_W, 'Total Width');
+            return {
+                SPACE,
+                H,
+                MAX,
+                FEET,
+                RAIL_W,
+                RAIL_L,
+                SHEET_CAP,
+                axisX,
+                axisY,
+                L,
+                W,
+                postH,
+                divX,
+                divY,
+                modL,
+                modW,
+                railCutX,
+                railCutY,
+                sheetFrontLength,
+                sheetSideLength,
+                sheetHeight
+            };
         }
 
-        // --- DRAWING FUNCTIONS ---
+        function calculateAndDraw() {
+            const m = getMetrics();
+            latestMetrics = m;
+
+            document.getElementById('outSize').innerText = `${formatNumber(m.L)}W x ${formatNumber(m.W)}D x ${formatNumber(m.H)}H mm`;
+            document.getElementById('outGrid').innerText = `${m.divX} x ${m.divY} Sections`;
+            document.getElementById('outXBasis').innerText = m.axisX.note;
+            document.getElementById('outYBasis').innerText = m.axisY.note;
+
+            const qtyPosts = (m.divX + 1) * (m.divY + 1);
+            const qtyHRailsL = m.divX * (m.divY + 1);
+            const qtyHRailsW = m.divY * (m.divX + 1);
+            const tbody = document.getElementById('bomBody');
+
+            tbody.innerHTML = `
+                <tr><td><strong>Feet</strong></td><td>${qtyPosts}</td><td>${formatNumber(m.RAIL_L)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.FEET)}</td></tr>
+                <tr><td><strong>Vertical Rails (Posts)</strong></td><td>${qtyPosts}</td><td>${formatNumber(m.RAIL_L)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${m.postH.toFixed(1)}</td></tr>
+                <tr><td><strong>Horizontal Rails (X-Axis)</strong></td><td>${qtyHRailsL}</td><td>${m.railCutX.toFixed(1)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.RAIL_L)}</td></tr>
+                <tr><td><strong>Horizontal Rails (Y-Axis)</strong></td><td>${qtyHRailsW}</td><td>${m.railCutY.toFixed(1)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.RAIL_L)}</td></tr>
+                <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${m.divX * 2}</td><td>${m.sheetFrontLength.toFixed(1)}</td><td>-</td><td>${m.sheetHeight.toFixed(1)}</td></tr>
+                <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${m.divY * 2}</td><td>${m.sheetSideLength.toFixed(1)}</td><td>-</td><td>${m.sheetHeight.toFixed(1)}</td></tr>
+                <tr><td><strong>Lid Sheets</strong></td><td>${m.divX * m.divY}</td><td>${m.sheetFrontLength.toFixed(1)}</td><td>${m.sheetSideLength.toFixed(1)}</td><td>-</td></tr>
+            `;
+
+            renderTop('canvasTop', m);
+            renderElevation('canvasFront', m.L, m.H, m.divX, m.railCutX, m.postH, m.FEET, m.RAIL_W, m.RAIL_L);
+            renderElevation('canvasSide', m.W, m.H, m.divY, m.railCutY, m.postH, m.FEET, m.RAIL_L, m.RAIL_W);
+            render3D(m);
+        }
 
         function drawDim(ctx, x1, y1, x2, y2, text, isVertical=false) {
             ctx.beginPath();
-            ctx.strokeStyle = "#e74c3c";
-            ctx.fillStyle = "#e74c3c";
+            ctx.strokeStyle = '#e74c3c';
+            ctx.fillStyle = '#e74c3c';
             ctx.lineWidth = 1.5;
-            ctx.font = "13px sans-serif";
+            ctx.font = '13px sans-serif';
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
-            
+
             const tick = 6;
             if (isVertical) {
                 ctx.moveTo(x1 - tick, y1); ctx.lineTo(x1 + tick, y1);
                 ctx.moveTo(x2 - tick, y2); ctx.lineTo(x2 + tick, y2);
-                ctx.textAlign = "left"; ctx.textBaseline = "middle";
-                ctx.fillText(text, x1 + 8, (y1 + y2)/2);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(text, x1 + 8, (y1 + y2) / 2);
             } else {
                 ctx.moveTo(x1, y1 - tick); ctx.lineTo(x1, y1 + tick);
                 ctx.moveTo(x2, y2 - tick); ctx.lineTo(x2, y2 + tick);
-                ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-                ctx.fillText(text, (x1 + x2)/2, y1 - 8);
+                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                ctx.fillText(text, (x1 + x2) / 2, y1 - 8);
             }
             ctx.stroke();
         }
 
-        function renderTop(id, L, W, divX, divY, modL, modW, railW, railL) {
+        function renderTop(id, m) {
             const canvas = document.getElementById(id);
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -310,42 +447,46 @@
             const pad = 60;
             const drawW = canvas.width - pad * 2;
             const drawH = canvas.height - pad * 2;
-            const scale = Math.min(drawW / L, drawH / W);
-            const sL = L * scale;
-            const sW = W * scale;
-            
+            const scale = Math.min(drawW / m.L, drawH / m.W);
+            const sL = m.L * scale;
+            const sW = m.W * scale;
             const oX = (canvas.width - sL) / 2;
             const oY = (canvas.height - sW) / 2;
+            const postX = m.RAIL_L * scale;
+            const postY = m.RAIL_W * scale;
+            const sRailCutX = m.railCutX * scale;
+            const sRailCutY = m.railCutY * scale;
+            const xCenters = [];
+            const yCenters = [];
 
-            ctx.strokeStyle = "#2980b9";
-            ctx.lineWidth = Math.max(railW * scale, 2); // Make border relative to rail thickness
-            ctx.strokeRect(oX, oY, sL, sW);
+            for (let i = 0; i <= m.divX; i++) xCenters.push(oX + postX / 2 + i * (sRailCutX + postX));
+            for (let j = 0; j <= m.divY; j++) yCenters.push(oY + postY / 2 + j * (sRailCutY + postY));
 
-            ctx.lineWidth = Math.max((railW/2) * scale, 1);
-            for (let i = 1; i < divX; i++) {
-                let x = oX + (i * (sL/divX));
-                ctx.beginPath(); ctx.moveTo(x, oY); ctx.lineTo(x, oY + sW); ctx.stroke();
+            ctx.fillStyle = '#2980b9';
+            for (let j = 0; j <= m.divY; j++) {
+                for (let i = 0; i < m.divX; i++) {
+                    ctx.fillRect(xCenters[i] + postX / 2, yCenters[j] - postY / 2, sRailCutX, postY);
+                }
             }
-            for (let i = 1; i < divY; i++) {
-                let y = oY + (i * (sW/divY));
-                ctx.beginPath(); ctx.moveTo(oX, y); ctx.lineTo(oX + sL, y); ctx.stroke();
-            }
-
-            ctx.fillStyle = "#2c3e50";
-            const nodeX = Math.max(railL * scale, 4);
-            const nodeY = Math.max(railW * scale, 4);
-            for (let i = 0; i <= divX; i++) {
-                for (let j = 0; j <= divY; j++) {
-                    ctx.fillRect(oX + (i * sL/divX) - nodeX/2, oY + (j * sW/divY) - nodeY/2, nodeX, nodeY);
+            for (let i = 0; i <= m.divX; i++) {
+                for (let j = 0; j < m.divY; j++) {
+                    ctx.fillRect(xCenters[i] - postX / 2, yCenters[j] + postY / 2, postX, sRailCutY);
                 }
             }
 
-            drawDim(ctx, oX, oY - 20, oX + sL, oY - 20, `${L.toFixed(1)} mm`); 
-            drawDim(ctx, oX - 20, oY, oX - 20, oY + sW, `${W.toFixed(1)} mm`, true); 
-            if (divX > 1) drawDim(ctx, oX, oY + sW + 20, oX + (sL/divX), oY + sW + 20, `${modL.toFixed(1)} mm`); 
+            ctx.fillStyle = '#2c3e50';
+            for (let i = 0; i <= m.divX; i++) {
+                for (let j = 0; j <= m.divY; j++) {
+                    ctx.fillRect(xCenters[i] - postX / 2, yCenters[j] - postY / 2, postX, postY);
+                }
+            }
+
+            drawDim(ctx, oX, oY - 20, oX + sL, oY - 20, `${m.L.toFixed(1)} mm`);
+            drawDim(ctx, oX - 20, oY, oX - 20, oY + sW, `${m.W.toFixed(1)} mm`, true);
+            drawDim(ctx, xCenters[0] + postX / 2, oY + sW + 20, xCenters[1] - postX / 2, oY + sW + 20, `${m.railCutX.toFixed(1)} mm`);
         }
 
-        function renderElevation(id, spanL, H, div, modL, postH, feetH, sheetT, railH, postW_actual, labelSpan) {
+        function renderElevation(id, spanL, H, div, railCut, postH, feetH, railH, postFootprint) {
             const canvas = document.getElementById(id);
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -354,42 +495,252 @@
             const drawW = canvas.width - pad * 2;
             const drawH = canvas.height - pad * 2;
             const scale = Math.min(drawW / spanL, drawH / H);
-            
             const sL = spanL * scale;
             const sH = H * scale;
             const sFeet = feetH * scale;
             const sPost = postH * scale;
             const sRail = railH * scale;
-            const sSheet = sheetT * scale;
-            const postW = Math.max(postW_actual * scale, 4); 
-
+            const postW = postFootprint * scale;
+            const drawnPostW = Math.max(postW, 4);
+            const sRailCut = railCut * scale;
             const oX = (canvas.width - sL) / 2;
-            const oY = canvas.height - pad; 
+            const oY = canvas.height - pad;
+            const xCenters = [];
 
-            // Top Sheet
-            ctx.fillStyle = "#bdc3c7";
-            ctx.fillRect(oX, oY - sH, sL, sSheet);
-            
-            // Horizontal Rail
-            ctx.fillStyle = "#3498db";
-            ctx.fillRect(oX, oY - sH + sSheet, sL, sRail);
+            for (let i = 0; i <= div; i++) xCenters.push(oX + postW / 2 + i * (sRailCut + postW));
 
-            // Feet and Posts
-            for (let i = 0; i <= div; i++) {
-                let xCenter = oX + (i * (sL/div));
-                ctx.fillStyle = "#95a5a6";
-                ctx.fillRect(xCenter - postW/2, oY - sFeet - sPost, postW, sPost);
-                ctx.fillStyle = "#2c3e50";
-                ctx.fillRect(xCenter - postW/2, oY - sFeet, postW, sFeet);
+            ctx.fillStyle = '#3498db';
+            for (let i = 0; i < div; i++) {
+                ctx.fillRect(xCenters[i] + postW / 2, oY - sH, sRailCut, sRail);
             }
 
-            drawDim(ctx, oX, oY + 25, oX + sL, oY + 25, `${spanL.toFixed(1)} mm`); 
-            drawDim(ctx, oX + sL + 20, oY - sH, oX + sL + 20, oY, `${H.toFixed(1)} mm`, true); 
-            drawDim(ctx, oX - 25, oY - sFeet - sPost, oX - 25, oY - sFeet, `Post: ${postH.toFixed(1)} mm`, true); 
-            if (div > 1) drawDim(ctx, oX, oY - sH - 20, oX + (sL/div), oY - sH - 20, `${modL.toFixed(1)} mm`); 
+            for (let i = 0; i <= div; i++) {
+                const xCenter = xCenters[i];
+                ctx.fillStyle = '#95a5a6';
+                ctx.fillRect(xCenter - drawnPostW / 2, oY - sFeet - sPost, drawnPostW, sPost);
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(xCenter - drawnPostW / 2, oY - sFeet, drawnPostW, sFeet);
+            }
+
+            drawDim(ctx, oX, oY + 25, oX + sL, oY + 25, `${spanL.toFixed(1)} mm`);
+            drawDim(ctx, oX + sL + 20, oY - sH, oX + sL + 20, oY, `${H.toFixed(1)} mm`, true);
+            drawDim(ctx, oX - 25, oY - sFeet - sPost, oX - 25, oY - sFeet, `Post: ${postH.toFixed(1)} mm`, true);
+            drawDim(ctx, xCenters[0] + postW / 2, oY - sH - 20, xCenters[1] - postW / 2, oY - sH - 20, `${railCut.toFixed(1)} mm`);
         }
 
-        // Initialize on load
+        function init3D() {
+            const container = document.getElementById('model3d');
+            const tooltip = document.getElementById('partTooltip');
+
+            try {
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf8fafc);
+
+                const camera = new THREE.PerspectiveCamera(45, 1, 1, 10000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                container.appendChild(renderer.domElement);
+
+                const controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.08;
+
+                const group = new THREE.Group();
+                scene.add(group);
+                scene.add(new THREE.HemisphereLight(0xffffff, 0x94a3b8, 1.9));
+
+                const directional = new THREE.DirectionalLight(0xffffff, 2.2);
+                directional.position.set(800, 1200, 600);
+                scene.add(directional);
+
+                const raycaster = new THREE.Raycaster();
+                const pointer = new THREE.Vector2();
+
+                threeState = {
+                    scene,
+                    camera,
+                    renderer,
+                    controls,
+                    group,
+                    raycaster,
+                    pointer,
+                    parts: [],
+                    tooltip,
+                    hovered: null
+                };
+
+                renderer.domElement.addEventListener('pointermove', on3DPointerMove);
+                renderer.domElement.addEventListener('pointerleave', clear3DHover);
+                window.addEventListener('resize', resize3D);
+                resize3D();
+                animate3D();
+            } catch (error) {
+                document.getElementById('modelHint').textContent = '3D view is unavailable in this browser.';
+            }
+        }
+
+        function resize3D() {
+            if (!threeState) return;
+
+            const { renderer, camera } = threeState;
+            const container = document.getElementById('model3d');
+            const width = Math.max(container.clientWidth, 1);
+            const height = Math.max(container.clientHeight, 1);
+
+            renderer.setSize(width, height, false);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+
+        function makeMaterial(color, opacity = 1) {
+            return new THREE.MeshStandardMaterial({
+                color,
+                transparent: opacity < 1,
+                opacity,
+                roughness: 0.62,
+                metalness: 0.08
+            });
+        }
+
+        function addPart(group, parts, m, name, size, center, color, opacity = 1) {
+            if (size.x <= 0 || size.y <= 0 || size.z <= 0) return;
+
+            const geometry = new THREE.BoxGeometry(size.x, size.z, size.y);
+            const material = makeMaterial(color, opacity);
+            const mesh = new THREE.Mesh(geometry, material);
+
+            mesh.position.set(center.x - m.L / 2, center.z - m.H / 2, center.y - m.W / 2);
+            mesh.userData.tooltip = `<strong>${name}</strong><br>${size.label || `${formatNumber(size.x)} x ${formatNumber(size.y)} x ${formatNumber(size.z)} mm`}`;
+            mesh.userData.baseColor = color;
+            group.add(mesh);
+            parts.push(mesh);
+        }
+
+        function render3D(m) {
+            if (!threeState) return;
+
+            const { group, parts, camera, controls } = threeState;
+            group.clear();
+            parts.length = 0;
+
+            const postStepX = m.railCutX + m.RAIL_L;
+            const postStepY = m.railCutY + m.RAIL_W;
+            const sheetT = Math.min(Math.max(Math.min(m.RAIL_L, m.RAIL_W) * 0.12, 2), 6);
+
+            for (let i = 0; i <= m.divX; i++) {
+                for (let j = 0; j <= m.divY; j++) {
+                    const x = i * postStepX;
+                    const y = j * postStepY;
+
+                    addPart(group, parts, m, 'Foot', { x: m.RAIL_L, y: m.RAIL_W, z: m.FEET }, { x: x + m.RAIL_L / 2, y: y + m.RAIL_W / 2, z: m.FEET / 2 }, 0x1f2937);
+                    addPart(group, parts, m, 'Vertical rail post', { x: m.RAIL_L, y: m.RAIL_W, z: m.postH }, { x: x + m.RAIL_L / 2, y: y + m.RAIL_W / 2, z: m.FEET + m.postH / 2 }, 0x334155);
+                }
+            }
+
+            for (let j = 0; j <= m.divY; j++) {
+                for (let i = 0; i < m.divX; i++) {
+                    addPart(group, parts, m, 'Horizontal rail X-axis', { x: m.railCutX, y: m.RAIL_W, z: m.RAIL_L }, { x: m.RAIL_L + i * postStepX + m.railCutX / 2, y: j * postStepY + m.RAIL_W / 2, z: m.H - m.RAIL_L / 2 }, 0x2980b9);
+                }
+            }
+
+            for (let i = 0; i <= m.divX; i++) {
+                for (let j = 0; j < m.divY; j++) {
+                    addPart(group, parts, m, 'Horizontal rail Y-axis', { x: m.RAIL_L, y: m.railCutY, z: m.RAIL_L }, { x: i * postStepX + m.RAIL_L / 2, y: m.RAIL_W + j * postStepY + m.railCutY / 2, z: m.H - m.RAIL_L / 2 }, 0x38bdf8);
+                }
+            }
+
+            for (let i = 0; i < m.divX; i++) {
+                const centerX = m.RAIL_L + i * postStepX + m.railCutX / 2;
+                const label = `${m.sheetFrontLength.toFixed(1)} x ${m.sheetHeight.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+
+                addPart(group, parts, m, 'Side sheet front', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
+                addPart(group, parts, m, 'Side sheet back', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.W - m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
+            }
+
+            for (let j = 0; j < m.divY; j++) {
+                const centerY = m.RAIL_W + j * postStepY + m.railCutY / 2;
+                const label = `${m.sheetSideLength.toFixed(1)} x ${m.sheetHeight.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+
+                addPart(group, parts, m, 'Side sheet left', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
+                addPart(group, parts, m, 'Side sheet right', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.L - m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
+            }
+
+            for (let i = 0; i < m.divX; i++) {
+                for (let j = 0; j < m.divY; j++) {
+                    const label = `${m.sheetFrontLength.toFixed(1)} x ${m.sheetSideLength.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+                    addPart(group, parts, m, 'Lid sheet', { x: m.sheetFrontLength, y: m.sheetSideLength, z: sheetT, label }, { x: m.RAIL_L + i * postStepX + m.railCutX / 2, y: m.RAIL_W + j * postStepY + m.railCutY / 2, z: m.H + sheetT / 2 }, 0xcbd5e1, 0.55);
+                }
+            }
+
+            const maxDim = Math.max(m.L, m.W, m.H);
+            camera.position.set(maxDim * 0.82, maxDim * 0.58, maxDim * 0.9);
+            camera.near = 1;
+            camera.far = maxDim * 8;
+            camera.updateProjectionMatrix();
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        function on3DPointerMove(event) {
+            if (!threeState || !latestMetrics) return;
+
+            const { renderer, camera, raycaster, pointer, parts, tooltip } = threeState;
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+
+            const hit = raycaster.intersectObjects(parts, false)[0];
+            if (!hit) {
+                clear3DHover();
+                return;
+            }
+
+            set3DHover(hit.object);
+            tooltip.innerHTML = hit.object.userData.tooltip;
+            tooltip.style.display = 'block';
+            tooltip.style.left = `${event.clientX - rect.left + 12}px`;
+            tooltip.style.top = `${event.clientY - rect.top + 12}px`;
+        }
+
+        function set3DHover(mesh) {
+            if (threeState.hovered === mesh) return;
+            clear3DHover();
+            threeState.hovered = mesh;
+            mesh.material.emissive.setHex(0x1d4ed8);
+            mesh.material.emissiveIntensity = 0.35;
+        }
+
+        function clear3DHover() {
+            if (!threeState) return;
+
+            if (threeState.hovered) {
+                threeState.hovered.material.emissive.setHex(0x000000);
+                threeState.hovered.material.emissiveIntensity = 0;
+                threeState.hovered = null;
+            }
+            threeState.tooltip.style.display = 'none';
+        }
+
+        function animate3D() {
+            if (!threeState) return;
+
+            requestAnimationFrame(animate3D);
+            threeState.controls.update();
+            threeState.renderer.render(threeState.scene, threeState.camera);
+        }
+
+        window.calculateAndDraw = calculateAndDraw;
+        window.setAxisMode = setAxisMode;
+        window.normalizeAxisValue = normalizeAxisValue;
+        window.saveParameters = saveParameters;
+        window.openLoadDialog = openLoadDialog;
+        window.loadParameters = loadParameters;
+
+        updateAxisInputState('x');
+        updateAxisInputState('y');
+        init3D();
         calculateAndDraw();
     </script>
 </body>

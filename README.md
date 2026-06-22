@@ -95,12 +95,12 @@ Main inputs:
 - `Table Hole Spacing (mm)`: distance between table holes.
 - `Width X`: the X-axis span, entered either as a direct millimeter value or as a hole count.
 - `Depth Y`: the Y-axis span, entered either as a direct millimeter value or as a hole count.
-- `Target Total Height (mm)`: full target height, including feet and top sheet.
+- `Target Total Height (mm)`: full target height, including feet.
 - `Max Span Limit (mm)`: maximum allowed module span before the frame is divided into more sections.
 - `Feet Height (mm)`: height of each foot.
 - `Rail Profile Width (mm)`: rail profile width used for drawing and material dimensions.
 - `Rail Profile Length (mm)`: rail profile length/depth used for drawing and material dimensions.
-- `Top Sheet Thickness (mm)`: thickness of the top sheet.
+- `Sheet Cap (mm)`: extra overlap added to each edge of side sheets and lid sheets.
 
 Calculated dimensions:
 
@@ -117,20 +117,33 @@ if Y is entered in mm:
 if Y is entered in holes:
     depth y = (y hole count - 1) * table hole spacing
 
-post height = target total height - feet height - top sheet thickness
+post height = target total height - feet height
 x sections = ceiling(width x / max span limit)
 y sections = ceiling(depth y / max span limit)
 module length = width x / x sections
 module width = depth y / y sections
+x rail cut length = (width x - (x sections + 1) * rail profile length) / x sections
+y rail cut length = (depth y - (y sections + 1) * rail profile width) / y sections
+front/back side sheet length = x rail cut length - 2 * sheet cap
+left/right side sheet length = y rail cut length - 2 * sheet cap
+lid sheet length = front/back side sheet length
+lid sheet width = left/right side sheet length
 ```
 
 Hole count means the number of actual holes across the span, not the number of gaps between holes. For example, 49 holes at 25 mm spacing creates a 1200 mm span because there are 48 spacing intervals between the first and last hole.
+
+When an axis is entered directly in millimeters, the axis input is visually greyed and the note below the input shows the nearest table hole count and its resulting table span.
+
+The horizontal rail cut lengths are the clear distances between adjacent vertical posts. Each row or column has one more post than section count, so the calculator subtracts all post footprints along that axis before dividing the remaining clear span.
+
+Sheet cap is treated as an inset allowance, so it is subtracted from both edges of the clear opening.
 
 The bill of materials is generated from those section counts and dimensions. The canvas drawings show:
 
 - Top view grid layout.
 - Front view along the X-axis.
 - Side view along the Y-axis.
+- Rotatable 3D model with hover dimensions for individual parts.
 
 ## Browser Support
 
