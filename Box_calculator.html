@@ -107,6 +107,10 @@
                 <label for="inpSheetCap">Sheet Cap (mm)</label>
                 <input type="number" step="0.1" min="0" id="inpSheetCap" value="4" oninput="calculateAndDraw()">
             </div>
+            <div>
+                <label for="inpSheetT">Sheet Thickness (mm)</label>
+                <input type="number" step="0.1" min="0" id="inpSheetT" value="3" oninput="calculateAndDraw()">
+            </div>
             <div class="parameter-actions">
                 <button type="button" onclick="saveParameters()">Save JSON</button>
                 <button type="button" onclick="openLoadDialog()">Load JSON</button>
@@ -127,7 +131,7 @@
                     <th>Qty</th>
                     <th>Length (mm)</th>
                     <th>Width (mm)</th>
-                    <th>Height/Thick (mm)</th>
+                    <th>Thickness (mm)</th>
                 </tr>
             </thead>
             <tbody id="bomBody"></tbody>
@@ -164,7 +168,7 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        const PARAMETER_INPUTS = ['inpSpace', 'inpX', 'inpY', 'inpH', 'inpMax', 'inpFeet', 'inpRailW', 'inpRailL', 'inpSheetCap'];
+        const PARAMETER_INPUTS = ['inpSpace', 'inpX', 'inpY', 'inpH', 'inpMax', 'inpFeet', 'inpRailW', 'inpRailL', 'inpSheetCap', 'inpSheetT'];
         const axisModes = {
             x: 'mm',
             y: 'mm'
@@ -180,6 +184,24 @@
 
         function formatNumber(value) {
             return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+        }
+
+        function getSortedDimensions(...dimensions) {
+            return dimensions
+                .map((dimension) => Math.max(Number(dimension) || 0, 0))
+                .sort((a, b) => b - a);
+        }
+
+        function formatDimensionCells(...dimensions) {
+            return getSortedDimensions(...dimensions)
+                .map((dimension) => `<td>${formatNumber(dimension)}</td>`)
+                .join('');
+        }
+
+        function formatPartDimensions(...dimensions) {
+            return getSortedDimensions(...dimensions)
+                .map(formatNumber)
+                .join(' x ');
         }
 
         function getClearRailLength(totalSpan, sectionCount, postFootprint) {
@@ -345,6 +367,7 @@
             const RAIL_W = Math.max(readNumber('inpRailW', 30), 0);
             const RAIL_L = Math.max(readNumber('inpRailL', 30), 0);
             const SHEET_CAP = Math.max(readNumber('inpSheetCap', 4), 0);
+            const SHEET_T = Math.max(readNumber('inpSheetT', 3), 0);
             const axisX = getAxisMeasurement('x', SPACE);
             const axisY = getAxisMeasurement('y', SPACE);
             const L = axisX.span;
@@ -368,6 +391,7 @@
                 RAIL_W,
                 RAIL_L,
                 SHEET_CAP,
+                SHEET_T,
                 axisX,
                 axisY,
                 L,
@@ -400,13 +424,13 @@
             const tbody = document.getElementById('bomBody');
 
             tbody.innerHTML = `
-                <tr><td><strong>Feet</strong></td><td>${qtyPosts}</td><td>${formatNumber(m.RAIL_L)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.FEET)}</td></tr>
-                <tr><td><strong>Vertical Rails (Posts)</strong></td><td>${qtyPosts}</td><td>${formatNumber(m.RAIL_L)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${m.postH.toFixed(1)}</td></tr>
-                <tr><td><strong>Horizontal Rails (X-Axis)</strong></td><td>${qtyHRailsL}</td><td>${m.railCutX.toFixed(1)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.RAIL_L)}</td></tr>
-                <tr><td><strong>Horizontal Rails (Y-Axis)</strong></td><td>${qtyHRailsW}</td><td>${m.railCutY.toFixed(1)}</td><td>${formatNumber(m.RAIL_W)}</td><td>${formatNumber(m.RAIL_L)}</td></tr>
-                <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${m.divX * 2}</td><td>${m.sheetFrontLength.toFixed(1)}</td><td>-</td><td>${m.sheetHeight.toFixed(1)}</td></tr>
-                <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${m.divY * 2}</td><td>${m.sheetSideLength.toFixed(1)}</td><td>-</td><td>${m.sheetHeight.toFixed(1)}</td></tr>
-                <tr><td><strong>Lid Sheets</strong></td><td>${m.divX * m.divY}</td><td>${m.sheetFrontLength.toFixed(1)}</td><td>${m.sheetSideLength.toFixed(1)}</td><td>-</td></tr>
+                <tr><td><strong>Feet</strong></td><td>${qtyPosts}</td>${formatDimensionCells(m.RAIL_L, m.RAIL_W, m.FEET)}</tr>
+                <tr><td><strong>Vertical Rails (Posts)</strong></td><td>${qtyPosts}</td>${formatDimensionCells(m.RAIL_L, m.RAIL_W, m.postH)}</tr>
+                <tr><td><strong>Horizontal Rails (X-Axis)</strong></td><td>${qtyHRailsL}</td>${formatDimensionCells(m.railCutX, m.RAIL_W, m.RAIL_L)}</tr>
+                <tr><td><strong>Horizontal Rails (Y-Axis)</strong></td><td>${qtyHRailsW}</td>${formatDimensionCells(m.railCutY, m.RAIL_W, m.RAIL_L)}</tr>
+                <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${m.divX * 2}</td>${formatDimensionCells(m.sheetFrontLength, m.sheetHeight, m.SHEET_T)}</tr>
+                <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${m.divY * 2}</td>${formatDimensionCells(m.sheetSideLength, m.sheetHeight, m.SHEET_T)}</tr>
+                <tr><td><strong>Lid Sheets</strong></td><td>${m.divX * m.divY}</td>${formatDimensionCells(m.sheetFrontLength, m.sheetSideLength, m.SHEET_T)}</tr>
             `;
 
             renderTop('canvasTop', m);
@@ -611,7 +635,7 @@
             const mesh = new THREE.Mesh(geometry, material);
 
             mesh.position.set(center.x - m.L / 2, center.z - m.H / 2, center.y - m.W / 2);
-            mesh.userData.tooltip = `<strong>${name}</strong><br>${size.label || `${formatNumber(size.x)} x ${formatNumber(size.y)} x ${formatNumber(size.z)} mm`}`;
+            mesh.userData.tooltip = `<strong>${name}</strong><br>${size.label || `${formatPartDimensions(size.x, size.y, size.z)} mm`}`;
             mesh.userData.baseColor = color;
             group.add(mesh);
             parts.push(mesh);
@@ -626,7 +650,7 @@
 
             const postStepX = m.railCutX + m.RAIL_L;
             const postStepY = m.railCutY + m.RAIL_W;
-            const sheetT = Math.min(Math.max(Math.min(m.RAIL_L, m.RAIL_W) * 0.12, 2), 6);
+            const sheetT = m.SHEET_T;
 
             for (let i = 0; i <= m.divX; i++) {
                 for (let j = 0; j <= m.divY; j++) {
@@ -652,7 +676,7 @@
 
             for (let i = 0; i < m.divX; i++) {
                 const centerX = m.RAIL_L + i * postStepX + m.railCutX / 2;
-                const label = `${m.sheetFrontLength.toFixed(1)} x ${m.sheetHeight.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+                const label = `${formatPartDimensions(m.sheetFrontLength, m.sheetHeight, m.SHEET_T)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
 
                 addPart(group, parts, m, 'Side sheet front', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
                 addPart(group, parts, m, 'Side sheet back', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.W - m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
@@ -660,7 +684,7 @@
 
             for (let j = 0; j < m.divY; j++) {
                 const centerY = m.RAIL_W + j * postStepY + m.railCutY / 2;
-                const label = `${m.sheetSideLength.toFixed(1)} x ${m.sheetHeight.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+                const label = `${formatPartDimensions(m.sheetSideLength, m.sheetHeight, m.SHEET_T)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
 
                 addPart(group, parts, m, 'Side sheet left', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
                 addPart(group, parts, m, 'Side sheet right', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.L - m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
@@ -668,7 +692,7 @@
 
             for (let i = 0; i < m.divX; i++) {
                 for (let j = 0; j < m.divY; j++) {
-                    const label = `${m.sheetFrontLength.toFixed(1)} x ${m.sheetSideLength.toFixed(1)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
+                    const label = `${formatPartDimensions(m.sheetFrontLength, m.sheetSideLength, m.SHEET_T)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
                     addPart(group, parts, m, 'Lid sheet', { x: m.sheetFrontLength, y: m.sheetSideLength, z: sheetT, label }, { x: m.RAIL_L + i * postStepX + m.railCutX / 2, y: m.RAIL_W + j * postStepY + m.railCutY / 2, z: m.H + sheetT / 2 }, 0xcbd5e1, 0.55);
                 }
             }

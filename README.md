@@ -100,7 +100,8 @@ Main inputs:
 - `Feet Height (mm)`: height of each foot.
 - `Rail Profile Width (mm)`: rail profile width used for drawing and material dimensions.
 - `Rail Profile Length (mm)`: rail profile length/depth used for drawing and material dimensions.
-- `Sheet Cap (mm)`: extra overlap added to each edge of side sheets and lid sheets.
+- `Sheet Cap (mm)`: inset allowance subtracted from each edge of side sheets and lid sheets.
+- `Sheet Thickness (mm)`: material thickness used for side sheets and lid sheets in the bill of materials and 3D model.
 
 Calculated dimensions:
 
@@ -126,6 +127,7 @@ x rail cut length = (width x - (x sections + 1) * rail profile length) / x secti
 y rail cut length = (depth y - (y sections + 1) * rail profile width) / y sections
 front/back side sheet length = x rail cut length - 2 * sheet cap
 left/right side sheet length = y rail cut length - 2 * sheet cap
+sheet thickness = sheet thickness input
 lid sheet length = front/back side sheet length
 lid sheet width = left/right side sheet length
 ```
@@ -137,6 +139,8 @@ When an axis is entered directly in millimeters, the axis input is visually grey
 The horizontal rail cut lengths are the clear distances between adjacent vertical posts. Each row or column has one more post than section count, so the calculator subtracts all post footprints along that axis before dividing the remaining clear span.
 
 Sheet cap is treated as an inset allowance, so it is subtracted from both edges of the clear opening.
+
+The bill of materials normalizes dimensions for readability: `Length` is the largest part dimension, `Width` is the second largest, and `Thickness` is the smallest.
 
 The bill of materials is generated from those section counts and dimensions. The canvas drawings show:
 
