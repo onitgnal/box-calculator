@@ -18,6 +18,8 @@
         .axis-control.direct-mm { background: #eef2f7; border-color: #d8dee8; padding: 10px; }
         .axis-control.direct-mm > label { color: #64748b; }
         .axis-control.direct-mm input[type="number"] { background: #e5e7eb; color: #334155; }
+        .fixed-parameter label { color: #64748b; }
+        .fixed-parameter input { background: #e5e7eb; color: #334155; cursor: not-allowed; }
         .axis-note { color: #64748b; font-size: 0.82em; min-height: 1.2em; }
         .segmented-control { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #f8fafc; }
         .segmented-control input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; margin: 0; }
@@ -91,21 +93,21 @@
                 <label for="inpMax">Max Span Limit (mm)</label>
                 <input type="number" id="inpMax" value="900" oninput="calculateAndDraw()">
             </div>
-            <div>
+            <div class="fixed-parameter">
                 <label for="inpFeet">Feet Height (mm)</label>
-                <input type="number" step="1" id="inpFeet" value="30" oninput="calculateAndDraw()">
+                <input type="number" step="1" id="inpFeet" value="30" readonly oninput="calculateAndDraw()">
             </div>
-            <div>
+            <div class="fixed-parameter">
                 <label for="inpRailW">Rail Profile Width (mm)</label>
-                <input type="number" step="1" id="inpRailW" value="30" oninput="calculateAndDraw()">
+                <input type="number" step="1" id="inpRailW" value="30" readonly oninput="calculateAndDraw()">
             </div>
-            <div>
+            <div class="fixed-parameter">
                 <label for="inpRailL">Rail Profile Length (mm)</label>
-                <input type="number" step="1" id="inpRailL" value="30" oninput="calculateAndDraw()">
+                <input type="number" step="1" id="inpRailL" value="30" readonly oninput="calculateAndDraw()">
             </div>
-            <div>
+            <div class="fixed-parameter">
                 <label for="inpSheetCap">Sheet Cap (mm)</label>
-                <input type="number" step="0.1" min="0" id="inpSheetCap" value="4" oninput="calculateAndDraw()">
+                <input type="number" step="0.1" min="0" id="inpSheetCap" value="10" readonly oninput="calculateAndDraw()">
             </div>
             <div>
                 <label for="inpSheetT">Sheet Thickness (mm)</label>
@@ -169,6 +171,18 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         const PARAMETER_INPUTS = ['inpSpace', 'inpX', 'inpY', 'inpH', 'inpMax', 'inpFeet', 'inpRailW', 'inpRailL', 'inpSheetCap', 'inpSheetT'];
+        const FIXED_PARAMETER_VALUES = {
+            inpFeet: '30',
+            inpRailW: '30',
+            inpRailL: '30',
+            inpSheetCap: '10'
+        };
+        const FIT_TOLERANCE = 0.5;
+        const RK_4010571 = {
+            label: 'Rose+Krieger 4010571 Edging V 2-piece (45 deg mitred ends)',
+            width: 11.4,
+            thickness: 6.8
+        };
         const axisModes = {
             x: 'mm',
             y: 'mm'
@@ -208,8 +222,41 @@
             return (totalSpan - (sectionCount + 1) * postFootprint) / sectionCount;
         }
 
+        function applyFixedParameterValues() {
+            Object.entries(FIXED_PARAMETER_VALUES).forEach(([id, value]) => {
+                document.getElementById(id).value = value;
+            });
+        }
+
         function getSheetSize(clearOpening, cap) {
-            return Math.max(clearOpening - cap * 2, 0);
+            return Math.max(clearOpening - cap * 2 - FIT_TOLERANCE, 0);
+        }
+
+        function getEdgingRows(m) {
+            const cuts = new Map();
+            const addCut = (cutLength, quantity) => {
+                if (cutLength <= 0 || quantity <= 0) return;
+
+                const key = cutLength.toFixed(1);
+                cuts.set(key, {
+                    length: cutLength,
+                    quantity: (cuts.get(key)?.quantity || 0) + quantity
+                });
+            };
+
+            const qtyVerticalPerimeterHolders = 2 * (m.divX + 1) + 2 * (m.divY + 1);
+            const qtyTopRailXHolders = m.divX * (m.divY + 1) * 2;
+            const qtyTopRailYHolders = m.divY * (m.divX + 1) * 2;
+
+            addCut(m.sheetHeight, qtyVerticalPerimeterHolders);
+            addCut(Math.max(m.railCutX - FIT_TOLERANCE, 0), qtyTopRailXHolders);
+            addCut(Math.max(m.railCutY - FIT_TOLERANCE, 0), qtyTopRailYHolders);
+
+            return Array.from(cuts.values())
+                .sort((a, b) => b.length - a.length)
+                .map((cut) => `
+                <tr><td><strong>${RK_4010571.label}</strong></td><td>${cut.quantity}</td>${formatDimensionCells(cut.length, RK_4010571.width, RK_4010571.thickness)}</tr>`)
+                .join('');
         }
 
         function axisValueToSpan(value, mode, spacing) {
@@ -336,11 +383,12 @@
             });
 
             PARAMETER_INPUTS.forEach((id) => {
-                if (values[id] !== undefined) {
+                if (values[id] !== undefined && FIXED_PARAMETER_VALUES[id] === undefined) {
                     document.getElementById(id).value = values[id];
                 }
             });
 
+            applyFixedParameterValues();
             calculateAndDraw();
         }
 
@@ -360,13 +408,15 @@
         }
 
         function getMetrics() {
+            applyFixedParameterValues();
+
             const SPACE = Math.max(readNumber('inpSpace', 25), 0.1);
             const H = Math.max(readNumber('inpH', 497), 1);
             const MAX = Math.max(readNumber('inpMax', 900), 1);
             const FEET = Math.max(readNumber('inpFeet', 30), 0);
             const RAIL_W = Math.max(readNumber('inpRailW', 30), 0);
             const RAIL_L = Math.max(readNumber('inpRailL', 30), 0);
-            const SHEET_CAP = Math.max(readNumber('inpSheetCap', 4), 0);
+            const SHEET_CAP = Math.max(readNumber('inpSheetCap', 10), 0);
             const SHEET_T = Math.max(readNumber('inpSheetT', 3), 0);
             const axisX = getAxisMeasurement('x', SPACE);
             const axisY = getAxisMeasurement('y', SPACE);
@@ -381,7 +431,7 @@
             const railCutY = Math.max(getClearRailLength(W, divY, RAIL_W), 0);
             const sheetFrontLength = getSheetSize(railCutX, SHEET_CAP);
             const sheetSideLength = getSheetSize(railCutY, SHEET_CAP);
-            const sheetHeight = postH;
+            const sheetHeight = Math.max(postH - FIT_TOLERANCE, 0);
 
             return {
                 SPACE,
@@ -431,6 +481,7 @@
                 <tr><td><strong>Side Sheets (Front/Back)</strong></td><td>${m.divX * 2}</td>${formatDimensionCells(m.sheetFrontLength, m.sheetHeight, m.SHEET_T)}</tr>
                 <tr><td><strong>Side Sheets (Left/Right)</strong></td><td>${m.divY * 2}</td>${formatDimensionCells(m.sheetSideLength, m.sheetHeight, m.SHEET_T)}</tr>
                 <tr><td><strong>Lid Sheets</strong></td><td>${m.divX * m.divY}</td>${formatDimensionCells(m.sheetFrontLength, m.sheetSideLength, m.SHEET_T)}</tr>
+                ${getEdgingRows(m)}
             `;
 
             renderTop('canvasTop', m);
@@ -678,16 +729,16 @@
                 const centerX = m.RAIL_L + i * postStepX + m.railCutX / 2;
                 const label = `${formatPartDimensions(m.sheetFrontLength, m.sheetHeight, m.SHEET_T)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
 
-                addPart(group, parts, m, 'Side sheet front', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
-                addPart(group, parts, m, 'Side sheet back', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.W - m.RAIL_W / 2, z: m.FEET + m.sheetHeight / 2 }, 0x94a3b8, 0.45);
+                addPart(group, parts, m, 'Side sheet front', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.RAIL_W / 2, z: m.sheetHeight / 2 }, 0x94a3b8, 0.45);
+                addPart(group, parts, m, 'Side sheet back', { x: m.sheetFrontLength, y: sheetT, z: m.sheetHeight, label }, { x: centerX, y: m.W - m.RAIL_W / 2, z: m.sheetHeight / 2 }, 0x94a3b8, 0.45);
             }
 
             for (let j = 0; j < m.divY; j++) {
                 const centerY = m.RAIL_W + j * postStepY + m.railCutY / 2;
                 const label = `${formatPartDimensions(m.sheetSideLength, m.sheetHeight, m.SHEET_T)} mm, ${formatNumber(m.SHEET_CAP)} mm cap`;
 
-                addPart(group, parts, m, 'Side sheet left', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
-                addPart(group, parts, m, 'Side sheet right', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.L - m.RAIL_L / 2, y: centerY, z: m.FEET + m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
+                addPart(group, parts, m, 'Side sheet left', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.RAIL_L / 2, y: centerY, z: m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
+                addPart(group, parts, m, 'Side sheet right', { x: sheetT, y: m.sheetSideLength, z: m.sheetHeight, label }, { x: m.L - m.RAIL_L / 2, y: centerY, z: m.sheetHeight / 2 }, 0xa8b3c2, 0.45);
             }
 
             for (let i = 0; i < m.divX; i++) {

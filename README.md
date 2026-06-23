@@ -97,10 +97,10 @@ Main inputs:
 - `Depth Y`: the Y-axis span, entered either as a direct millimeter value or as a hole count.
 - `Target Total Height (mm)`: full target height, including feet.
 - `Max Span Limit (mm)`: maximum allowed module span before the frame is divided into more sections.
-- `Feet Height (mm)`: height of each foot.
-- `Rail Profile Width (mm)`: rail profile width used for drawing and material dimensions.
-- `Rail Profile Length (mm)`: rail profile length/depth used for drawing and material dimensions.
-- `Sheet Cap (mm)`: inset allowance subtracted from each edge of side sheets and lid sheets.
+- `Feet Height (mm)`: fixed at `30` mm.
+- `Rail Profile Width (mm)`: fixed at `30` mm.
+- `Rail Profile Length (mm)`: fixed at `30` mm.
+- `Sheet Cap (mm)`: fixed inset allowance of `10` mm subtracted from each edge of side sheets and lid sheets.
 - `Sheet Thickness (mm)`: material thickness used for side sheets and lid sheets in the bill of materials and 3D model.
 
 Calculated dimensions:
@@ -125,8 +125,10 @@ module length = width x / x sections
 module width = depth y / y sections
 x rail cut length = (width x - (x sections + 1) * rail profile length) / x sections
 y rail cut length = (depth y - (y sections + 1) * rail profile width) / y sections
-front/back side sheet length = x rail cut length - 2 * sheet cap
-left/right side sheet length = y rail cut length - 2 * sheet cap
+fit tolerance = 0.5 mm
+front/back side sheet length = x rail cut length - 2 * sheet cap - fit tolerance
+left/right side sheet length = y rail cut length - 2 * sheet cap - fit tolerance
+side sheet height = post height - fit tolerance
 sheet thickness = sheet thickness input
 lid sheet length = front/back side sheet length
 lid sheet width = left/right side sheet length
@@ -138,9 +140,11 @@ When an axis is entered directly in millimeters, the axis input is visually grey
 
 The horizontal rail cut lengths are the clear distances between adjacent vertical posts. Each row or column has one more post than section count, so the calculator subtracts all post footprints along that axis before dividing the remaining clear span.
 
-Sheet cap is treated as an inset allowance, so it is subtracted from both edges of the clear opening.
+Sheet cap is treated as an inset allowance, so it is subtracted from both edges of the clear opening. The sheet and `4010571` holder cut lengths also receive a fixed `0.5` mm fit tolerance.
 
 The bill of materials normalizes dimensions for readability: `Length` is the largest part dimension, `Width` is the second largest, and `Thickness` is the smallest.
+
+The bill of materials also includes `Rose+Krieger 4010571 Edging V 2-piece` holding-profile cuts for the side sheets and lid. These cuts are grouped by structural clear span: perimeter vertical post holders use the side-sheet height, and top rail holders use the X/Y rail clear lengths. Each `4010571` cut is specified with 45 degree mitred ends.
 
 The bill of materials is generated from those section counts and dimensions. The canvas drawings show:
 
