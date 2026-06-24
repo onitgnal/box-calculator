@@ -228,8 +228,12 @@
             });
         }
 
-        function getSheetSize(clearOpening, cap) {
-            return Math.max(clearOpening - cap * 2 - FIT_TOLERANCE, 0);
+        function getFitClearance(size) {
+            return Math.max(size - FIT_TOLERANCE, 0);
+        }
+
+        function getSheetSize(clearOpening, cap, cappedEdges = 2) {
+            return Math.max(clearOpening - cap * cappedEdges - FIT_TOLERANCE, 0);
         }
 
         function getEdgingRows(m) {
@@ -248,9 +252,9 @@
             const qtyTopRailXHolders = m.divX * (m.divY + 1) * 2;
             const qtyTopRailYHolders = m.divY * (m.divX + 1) * 2;
 
-            addCut(m.sheetHeight, qtyVerticalPerimeterHolders);
-            addCut(Math.max(m.railCutX - FIT_TOLERANCE, 0), qtyTopRailXHolders);
-            addCut(Math.max(m.railCutY - FIT_TOLERANCE, 0), qtyTopRailYHolders);
+            addCut(m.verticalEdgingLength, qtyVerticalPerimeterHolders);
+            addCut(getFitClearance(m.railCutX), qtyTopRailXHolders);
+            addCut(getFitClearance(m.railCutY), qtyTopRailYHolders);
 
             return Array.from(cuts.values())
                 .sort((a, b) => b.length - a.length)
@@ -431,7 +435,8 @@
             const railCutY = Math.max(getClearRailLength(W, divY, RAIL_W), 0);
             const sheetFrontLength = getSheetSize(railCutX, SHEET_CAP);
             const sheetSideLength = getSheetSize(railCutY, SHEET_CAP);
-            const sheetHeight = Math.max(postH - FIT_TOLERANCE, 0);
+            const sheetHeight = getSheetSize(postH, SHEET_CAP, 1);
+            const verticalEdgingLength = getFitClearance(postH);
 
             return {
                 SPACE,
@@ -455,7 +460,8 @@
                 railCutY,
                 sheetFrontLength,
                 sheetSideLength,
-                sheetHeight
+                sheetHeight,
+                verticalEdgingLength
             };
         }
 
